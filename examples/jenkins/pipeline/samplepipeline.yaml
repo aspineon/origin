@@ -23,7 +23,7 @@ parameters:
   displayName: Name
   name: NAME
   required: true
-  value: nodejs-mongodb-example
+  value: wildfly-example
 - description: The exposed hostname that will route to the Node.js service, if left
     blank a value will be defaulted.
   displayName: Application Hostname
@@ -32,42 +32,7 @@ parameters:
   displayName: Git Repository URL
   name: SOURCE_REPOSITORY_URL
   required: true
-  value: https://github.com/openshift/nodejs-ex.git
-- displayName: Database Name
-  name: DATABASE_NAME
-  required: true
-  value: sampledb
-- description: Username for MongoDB user that will be used for accessing the database.
-  displayName: MongoDB Username
-  from: user[A-Z0-9]{3}
-  generate: expression
-  name: DATABASE_USER
-- description: Password for the MongoDB user.
-  displayName: MongoDB Password
-  from: '[a-zA-Z0-9]{16}'
-  generate: expression
-  name: DATABASE_PASSWORD
-- description: Maximum amount of memory the Node.js container can use.
-  displayName: Memory Limit
-  name: MEMORY_LIMIT
-  required: true
-  value: 512Mi
-- description: Maximum amount of memory the MongoDB container can use.
-  displayName: Memory Limit (MongoDB)
-  name: MEMORY_MONGODB_LIMIT
-  required: true
-  value: 512Mi
-- displayName: Database Service Name
-  name: DATABASE_SERVICE_NAME
-  required: true
-  value: mongodb
-- description: Password for the database admin user.
-  displayName: Database Administrator Password
-  from: '[a-zA-Z0-9]{16}'
-  generate: expression
-  name: DATABASE_ADMIN_PASSWORD
-- description: Set this to a branch name, tag or other ref of your repository if you
-    are not using the default branch.
+  value: https://github.com/bparees/openshift-jee-sample.git
   displayName: Git Reference
   name: SOURCE_REPOSITORY_REF
 - description: Set this to the relative path to your project if it is not in the root
@@ -125,8 +90,7 @@ objects:
   kind: Service
   metadata:
     annotations:
-      service.alpha.openshift.io/dependencies: '[{"name": "${DATABASE_SERVICE_NAME}", "namespace": "", "kind": "Service"}]'
-    name: ${NAME}
+      name: ${NAME}
   spec:
     ports:
     - name: web
@@ -204,124 +168,14 @@ objects:
         name: ${NAME}
       spec:
         containers:
-        - env:
-          - name: DATABASE_SERVICE_NAME
-            value: ${DATABASE_SERVICE_NAME}
-          - name: MONGODB_USER
-            value: ${DATABASE_USER}
-          - name: MONGODB_PASSWORD
-            value: ${DATABASE_PASSWORD}
-          - name: MONGODB_DATABASE
-            value: ${DATABASE_NAME}
-          - name: MONGODB_ADMIN_PASSWORD
-            value: ${DATABASE_ADMIN_PASSWORD}
           image: ' '
-          livenessProbe:
-            httpGet:
-              path: /pagecount
-              port: 8080
-            initialDelaySeconds: 30
-            timeoutSeconds: 3
-          name: nodejs-mongodb-example
-          ports:
-          - containerPort: 8080
-          readinessProbe:
-            httpGet:
-              path: /pagecount
-              port: 8080
-            initialDelaySeconds: 3
-            timeoutSeconds: 3
-          resources:
-            limits:
-              memory: ${MEMORY_LIMIT}
     triggers:
     - imageChangeParams:
         automatic: false
         containerNames:
-        - nodejs-mongodb-example
+        - wildfly-example
         from:
           kind: ImageStreamTag
           name: ${NAME}:latest
-      type: ImageChange
-    - type: ConfigChange
-- apiVersion: v1
-  kind: Service
-  metadata:
-    annotations:
-      description: Exposes the database server
-    name: ${DATABASE_SERVICE_NAME}
-  spec:
-    ports:
-    - name: mongodb
-      port: 27017
-      targetPort: 27017
-    selector:
-      name: ${DATABASE_SERVICE_NAME}
-- apiVersion: v1
-  kind: DeploymentConfig
-  metadata:
-    annotations:
-      description: Defines how to deploy the database
-    name: ${DATABASE_SERVICE_NAME}
-  spec:
-    replicas: 1
-    selector:
-      name: ${DATABASE_SERVICE_NAME}
-    strategy:
-      type: Recreate
-    template:
-      metadata:
-        labels:
-          name: ${DATABASE_SERVICE_NAME}
-        name: ${DATABASE_SERVICE_NAME}
-      spec:
-        containers:
-        - env:
-          - name: MONGODB_USER
-            value: ${DATABASE_USER}
-          - name: MONGODB_PASSWORD
-            value: ${DATABASE_PASSWORD}
-          - name: MONGODB_DATABASE
-            value: ${DATABASE_NAME}
-          - name: MONGODB_ADMIN_PASSWORD
-            value: ${DATABASE_ADMIN_PASSWORD}
-          image: ' '
-          livenessProbe:
-            initialDelaySeconds: 30
-            tcpSocket:
-              port: 27017
-            timeoutSeconds: 1
-          name: mongodb
-          ports:
-          - containerPort: 27017
-          readinessProbe:
-            exec:
-              command:
-              - /bin/sh
-              - -i
-              - -c
-              - mongo 127.0.0.1:27017/$MONGODB_DATABASE -u $MONGODB_USER -p $MONGODB_PASSWORD
-                --eval="quit()"
-            initialDelaySeconds: 3
-            timeoutSeconds: 1
-          resources:
-            limits:
-              memory: ${MEMORY_MONGODB_LIMIT}
-          volumeMounts:
-          - mountPath: /var/lib/mongodb/data
-            name: ${DATABASE_SERVICE_NAME}-data
-        volumes:
-        - emptyDir:
-            medium: ""
-          name: ${DATABASE_SERVICE_NAME}-data
-    triggers:
-    - imageChangeParams:
-        automatic: true
-        containerNames:
-        - mongodb
-        from:
-          kind: ImageStreamTag
-          name: mongodb:3.2
-          namespace: ${NAMESPACE}
       type: ImageChange
     - type: ConfigChange
